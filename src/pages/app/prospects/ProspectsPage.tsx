@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ChevronRight,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge, type BadgeVariant } from '../../../components/ui/Badge';
@@ -17,8 +18,10 @@ import { LoadingState } from '../../../components/ui/LoadingState';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { AddProspectModal } from '../../../components/features/prospects/AddProspectModal';
 import { ImportCsvModal } from '../../../components/features/prospects/ImportCsvModal';
+import { DiscoveryModal } from '../../../components/features/discovery/DiscoveryModal';
 import { prospectsApi } from '../../../api';
 import { useToast } from '../../../app/providers/ToastProvider';
+import { PermissionGate } from '../../../security';
 import type { LeadStatus } from '../../../types';
 
 export const ProspectsPage: React.FC = () => {
@@ -35,6 +38,7 @@ export const ProspectsPage: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
 
   // 29. Debounce search query
   useEffect(() => {
@@ -109,22 +113,38 @@ export const ProspectsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setIsImportModalOpen(true)}
-            leftIcon={<Upload className="w-3.5 h-3.5" />}
-          >
-            Importer CSV
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setIsAddModalOpen(true)}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-          >
-            Ajouter un prospect
-          </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <PermissionGate permission="discovery:search" mode="disable" tooltip="Rôle insuffisant pour la découverte B2B">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsDiscoveryOpen(true)}
+              leftIcon={<Sparkles className="w-3.5 h-3.5 text-amber-500" />}
+            >
+              Découverte B2B (Apollo)
+            </Button>
+          </PermissionGate>
+
+          <PermissionGate permission="prospect:import" mode="disable" tooltip="Rôle insuffisant pour importer">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsImportModalOpen(true)}
+              leftIcon={<Upload className="w-3.5 h-3.5" />}
+            >
+              Importer CSV
+            </Button>
+          </PermissionGate>
+
+          <PermissionGate permission="prospect:create" mode="disable" tooltip="Rôle insuffisant pour créer un prospect">
+            <Button
+              size="sm"
+              onClick={() => setIsAddModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Ajouter un prospect
+            </Button>
+          </PermissionGate>
         </div>
       </div>
 
@@ -305,18 +325,20 @@ export const ProspectsPage: React.FC = () => {
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </Link>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Supprimer le prospect ${p.firstName} ${p.lastName} ?`)) {
-                                deleteMutation.mutate(p.id);
-                              }
-                            }}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded"
-                            title="Supprimer"
-                            aria-label={`Supprimer ${p.firstName} ${p.lastName}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <PermissionGate permission="prospect:delete" mode="hide">
+                            <button
+                              onClick={() => {
+                                if (confirm(`Supprimer le prospect ${p.firstName} ${p.lastName} ?`)) {
+                                  deleteMutation.mutate(p.id);
+                                }
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-600 rounded"
+                              title="Supprimer"
+                              aria-label={`Supprimer ${p.firstName} ${p.lastName}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </PermissionGate>
                         </div>
                       </td>
                     </tr>
@@ -388,6 +410,12 @@ export const ProspectsPage: React.FC = () => {
       <ImportCsvModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+        onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['prospects'] })}
+      />
+
+      <DiscoveryModal
+        isOpen={isDiscoveryOpen}
+        onClose={() => setIsDiscoveryOpen(false)}
         onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['prospects'] })}
       />
     </div>

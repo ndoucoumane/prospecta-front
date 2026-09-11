@@ -14,7 +14,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import { FAQSection } from '../../components/landing/FAQSection';
 
 export const HomePage: React.FC = () => {
   return (
@@ -22,16 +22,9 @@ export const HomePage: React.FC = () => {
       {/* 14 & 15. HERO SECTION: Typographic, clean, white background, no gradient, no 3D */}
       <section className="py-20 md:py-28 border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Subtle badge */}
-          <div className="inline-flex justify-center mb-6">
-            <Badge variant="blue" size="md">
-              Plateforme B2B de Prospection Commerciale
-            </Badge>
-          </div>
-
           {/* Main Hero Headline */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
-            Prospectez mieux. <br className="hidden sm:inline" />
+            <span className="text-blue-600">Prospectez mieux.</span> <br className="hidden sm:inline" />
             Convertissez davantage.
           </h1>
 
@@ -302,6 +295,9 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* FOIRE AUX QUESTIONS (FAQ) */}
+      <FAQSection />
 
       {/* CTA SECTION */}
       <section className="py-16 md:py-20 bg-white">
