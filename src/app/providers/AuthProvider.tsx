@@ -19,6 +19,7 @@ interface AuthContextType {
     email: string;
     organizationName: string;
     password: string;
+    phone?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   reloadOrganization: () => Promise<void>;
@@ -95,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string;
     organizationName: string;
     password: string;
+    phone?: string;
   }) => {
     setIsLoading(true);
     try {

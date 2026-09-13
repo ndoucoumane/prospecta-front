@@ -15,6 +15,12 @@ import {
   RotateCcw,
   Lightbulb,
   CheckCircle2,
+  Tag,
+  Edit3,
+  Save,
+  FileText,
+  Plus,
+  X,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge, type BadgeVariant } from '../../../components/ui/Badge';
@@ -32,12 +38,49 @@ export const ProspectDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [hasFetchedAi, setHasFetchedAi] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [tags, setTags] = useState<string[]>(['Dakar', 'Décideur C-Level', 'Hot Lead']);
+  const [newTagInput, setNewTagInput] = useState('');
 
   const { data: prospect, isLoading, error } = useQuery({
     queryKey: ['prospect', id],
     queryFn: () => prospectsApi.getProspectById(id || ''),
     enabled: !!id,
   });
+
+  React.useEffect(() => {
+    if (prospect?.notes) {
+      setNoteText(prospect.notes);
+    }
+  }, [prospect?.notes]);
+
+  const saveNotesMutation = useMutation({
+    mutationFn: (notesToSave: string) =>
+      prospectsApi.updateProspect(id || '', { notes: notesToSave }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prospect', id] });
+      queryClient.invalidateQueries({ queryKey: ['prospects'] });
+      setIsEditingNotes(false);
+      showToast('Note commerciale enregistrée avec succès.');
+    },
+    onError: () => {
+      showToast('Erreur lors de l\'enregistrement de la note.', 'error');
+    },
+  });
+
+  const handleAddTag = () => {
+    const trimmed = newTagInput.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed]);
+      setNewTagInput('');
+      showToast(`Tag "${trimmed}" ajouté.`);
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter((t) => t !== tagToRemove));
+  };
 
   const {
     data: aiSummary,
@@ -293,12 +336,115 @@ export const ProspectDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {prospect.notes && (
-              <div className="mt-4 p-3 bg-blue-50/50 border border-blue-100 rounded text-xs">
-                <span className="font-semibold text-blue-900 block mb-1">Notes commerciales :</span>
-                <p className="text-gray-700 leading-relaxed">{prospect.notes}</p>
+            {/* Tags & Labels (CDC § 37) */}
+            <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Tags & Segments commerciaux (CDC § 37) :</span>
+                </span>
               </div>
-            )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-0.5 rounded transition-colors"
+                  >
+                    <span>{tag}</span>
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      className="hover:text-red-600 ml-0.5"
+                      title="Retirer ce tag"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <div className="inline-flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                    placeholder="+ Nouveau tag..."
+                    className="h-6 text-[11px] px-2 bg-gray-50 border border-gray-200 rounded w-28 focus:w-36 focus:bg-white focus:outline-none focus:border-blue-600 transition-all"
+                  />
+                  {newTagInput.trim() && (
+                    <button
+                      onClick={handleAddTag}
+                      className="h-6 px-1.5 text-[10px] bg-blue-600 text-white rounded font-medium hover:bg-blue-700"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Notes privées (CDC § 38) */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Notes privées & Contexte commercial (CDC § 38) :</span>
+                </span>
+                {!isEditingNotes ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => setIsEditingNotes(true)}
+                    leftIcon={<Edit3 className="w-3 h-3 text-gray-500" />}
+                  >
+                    Modifier
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => {
+                        setNoteText(prospect.notes || '');
+                        setIsEditingNotes(false);
+                      }}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-6 px-2 text-[11px]"
+                      isLoading={saveNotesMutation.isPending}
+                      onClick={() => saveNotesMutation.mutate(noteText)}
+                      leftIcon={<Save className="w-3 h-3" />}
+                    >
+                      Enregistrer
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {isEditingNotes ? (
+                <textarea
+                  rows={3}
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Ex: Prospect rencontré au salon AfricaTech. Très intéressé par le module CRM et l'intégration WhatsApp..."
+                  className="w-full text-xs p-2.5 bg-gray-50 border border-gray-300 rounded focus:bg-white focus:outline-none focus:border-blue-600 text-gray-900 leading-relaxed"
+                />
+              ) : (
+                <div className="p-3 bg-blue-50/40 border border-blue-100 rounded text-xs">
+                  <p className="text-gray-700 leading-relaxed italic">
+                    {prospect.notes || 'Aucune note privée enregistrée pour le moment. Cliquez sur "Modifier" pour consigner des informations commerciales.'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Section IA Copilot : Angle d'accroche personnalisé */}

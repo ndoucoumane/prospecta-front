@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search,
@@ -11,6 +11,12 @@ import {
   ChevronRight,
   RotateCcw,
   Sparkles,
+  Download,
+  ListPlus,
+  Send,
+  CheckSquare,
+  Square,
+  Zap,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge, type BadgeVariant } from '../../../components/ui/Badge';
@@ -19,12 +25,15 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { AddProspectModal } from '../../../components/features/prospects/AddProspectModal';
 import { ImportCsvModal } from '../../../components/features/prospects/ImportCsvModal';
 import { DiscoveryModal } from '../../../components/features/discovery/DiscoveryModal';
+import { AddToListModal } from '../../../components/features/lists/AddToListModal';
 import { prospectsApi } from '../../../api';
 import { useToast } from '../../../app/providers/ToastProvider';
 import { PermissionGate } from '../../../security';
+import { exportToCsv } from '../../../lib/exportCsv';
 import type { LeadStatus } from '../../../types';
 
 export const ProspectsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -36,9 +45,11 @@ export const ProspectsPage: React.FC = () => {
   const [cityFilter, setCityFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+  const [isAddToListOpen, setIsAddToListOpen] = useState(false);
 
   // 29. Debounce search query
   useEffect(() => {
@@ -68,14 +79,77 @@ export const ProspectsPage: React.FC = () => {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => prospectsApi.deleteProspect(id),
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] });
       showToast('Prospect supprimé.');
+      setSelectedIds((prev) => prev.filter((item) => item !== deletedId));
     },
     onError: () => {
       showToast('Erreur lors de la suppression.', 'error');
     },
   });
+
+  // Multi-selection handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (!prospects) return;
+    if (selectedIds.length === prospects.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(prospects.map((p) => p.id));
+    }
+  };
+
+  // Batch Enrich
+  const batchEnrichMutation = useMutation({
+    mutationFn: async () => {
+      for (const id of selectedIds) {
+        await prospectsApi.enrichProspect(id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prospects'] });
+      showToast(`${selectedIds.length} prospect(s) enrichi(s) via Apollo.`);
+      setSelectedIds([]);
+    },
+    onError: () => {
+      showToast("Erreur lors de l'enrichissement groupé", 'error');
+    },
+  });
+
+  // Export to CSV (CDC §§ 10, 12, 13, 66, 83)
+  const handleExportCsv = (onlySelected = false) => {
+    const listToExport =
+      onlySelected && selectedIds.length > 0
+        ? (prospects || []).filter((p) => selectedIds.includes(p.id))
+        : (prospects || []);
+
+    if (listToExport.length === 0) {
+      showToast('Aucun prospect à exporter.', 'warning');
+      return;
+    }
+
+    exportToCsv(
+      `prospecta-prospects-${new Date().toISOString().slice(0, 10)}.csv`,
+      listToExport,
+      [
+        { key: 'firstName', label: 'Prénom' },
+        { key: 'lastName', label: 'Nom' },
+        { key: 'email', label: 'Email' },
+        { key: 'phone', label: 'Téléphone' },
+        { key: 'jobTitle', label: 'Fonction' },
+        { key: 'companyName', label: 'Entreprise' },
+        { key: 'city', label: 'Ville' },
+        { key: 'status', label: 'Statut' },
+      ]
+    );
+    showToast(`${listToExport.length} prospect(s) exporté(s) au format CSV.`);
+  };
 
   const getStatusBadge = (status: LeadStatus): { label: string; variant: BadgeVariant } => {
     switch (status) {
@@ -124,6 +198,15 @@ export const ProspectsPage: React.FC = () => {
               Découverte B2B (Apollo)
             </Button>
           </PermissionGate>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => handleExportCsv(false)}
+            leftIcon={<Download className="w-3.5 h-3.5" />}
+          >
+            Exporter CSV
+          </Button>
 
           <PermissionGate permission="prospect:import" mode="disable" tooltip="Rôle insuffisant pour importer">
             <Button
@@ -251,6 +334,65 @@ export const ProspectsPage: React.FC = () => {
         )}
       </div>
 
+      {/* Floating Multi-Selection Action Bar (CDC § 66) */}
+      {selectedIds.length > 0 && (
+        <div className="sticky top-2 z-20 bg-gray-900 text-white p-3 rounded-lg shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+              {selectedIds.length}
+            </span>
+            <span className="text-xs font-semibold">
+              {selectedIds.length} prospect(s) sélectionné(s)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsAddToListOpen(true)}
+              leftIcon={<ListPlus className="w-3.5 h-3.5 text-blue-600" />}
+            >
+              Ajouter à une liste
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => batchEnrichMutation.mutate()}
+              isLoading={batchEnrichMutation.isPending}
+              leftIcon={<Zap className="w-3.5 h-3.5 text-amber-500" />}
+            >
+              Enrichir (Apollo)
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => handleExportCsv(true)}
+              leftIcon={<Download className="w-3.5 h-3.5" />}
+            >
+              Exporter la sélection
+            </Button>
+            <Button
+              size="sm"
+              onClick={() =>
+                navigate('/app/campaigns/new', {
+                  state: { preSelectedProspectIds: selectedIds },
+                })
+              }
+              leftIcon={<Send className="w-3.5 h-3.5" />}
+            >
+              Lancer campagne
+            </Button>
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-xs text-gray-400 hover:text-white px-2 py-1"
+            >
+              Désélectionner
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content: Loading / Empty / Table / Mobile cards */}
       {isLoading ? (
         <LoadingState message="Chargement des prospects..." type="skeleton" rows={5} />
@@ -270,6 +412,19 @@ export const ProspectsPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold">
                 <tr>
+                  <th className="py-3 px-4 w-10">
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      className="text-gray-400 hover:text-blue-600 flex items-center"
+                    >
+                      {selectedIds.length === prospects.length ? (
+                        <CheckSquare className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3 px-4">Prospect</th>
                   <th className="py-3 px-4">Entreprise</th>
                   <th className="py-3 px-4">Fonction</th>
@@ -282,9 +437,28 @@ export const ProspectsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {prospects.map((p) => {
+                  const isSelected = selectedIds.includes(p.id);
                   const status = getStatusBadge(p.status);
                   return (
-                    <tr key={p.id} className="hover:bg-gray-50/75 transition-colors">
+                    <tr
+                      key={p.id}
+                      className={`hover:bg-gray-50/75 transition-colors ${
+                        isSelected ? 'bg-blue-50/30' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-4 w-10">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelect(p.id)}
+                          className="text-gray-400 hover:text-blue-600 flex items-center"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      </td>
                       <td className="py-3 px-4 font-medium text-gray-900">
                         <Link
                           to={`/app/prospects/${p.id}`}
@@ -351,25 +525,43 @@ export const ProspectsPage: React.FC = () => {
           {/* 28. Mobile Cards / List Items */}
           <div className="md:hidden space-y-3">
             {prospects.map((p) => {
+              const isSelected = selectedIds.includes(p.id);
               const status = getStatusBadge(p.status);
               return (
                 <div
                   key={p.id}
-                  className="bg-white border border-gray-200 rounded-lg p-4 space-y-2.5"
+                  className={`bg-white border rounded-lg p-4 space-y-2.5 transition-all ${
+                    isSelected
+                      ? 'border-blue-600 bg-blue-50/20'
+                      : 'border-gray-200'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <Link
-                      to={`/app/prospects/${p.id}`}
-                      className="font-semibold text-sm text-gray-900 hover:text-blue-600"
-                    >
-                      {p.firstName} {p.lastName}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelect(p.id)}
+                        className="text-gray-400 hover:text-blue-600"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-blue-600" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </button>
+                      <Link
+                        to={`/app/prospects/${p.id}`}
+                        className="font-semibold text-sm text-gray-900 hover:text-blue-600"
+                      >
+                        {p.firstName} {p.lastName}
+                      </Link>
+                    </div>
                     <Badge variant={status.variant} size="sm" dot>
                       {status.label}
                     </Badge>
                   </div>
 
-                  <div className="text-xs text-gray-600 space-y-0.5">
+                  <div className="text-xs text-gray-600 space-y-0.5 pl-6">
                     <p className="font-medium text-gray-800">
                       {p.jobTitle} • {p.companyName}
                     </p>
@@ -417,6 +609,13 @@ export const ProspectsPage: React.FC = () => {
         isOpen={isDiscoveryOpen}
         onClose={() => setIsDiscoveryOpen(false)}
         onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['prospects'] })}
+      />
+
+      <AddToListModal
+        isOpen={isAddToListOpen}
+        onClose={() => setIsAddToListOpen(false)}
+        prospectIds={selectedIds}
+        onSuccess={() => setSelectedIds([])}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import type {
   ApiResponse,
 } from '../types/api';
 import { initialProspects } from './mockData';
+import { repairGarbledAccents } from '../lib/csvReader';
 
 const STORAGE_KEY = 'prospecta_prospects';
 
@@ -18,7 +19,18 @@ function loadLocalProspects(): Prospect[] {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const list: Prospect[] = JSON.parse(stored);
+      // Auto-repair any accented strings (e.g. Opérations, Sénégal, etc.)
+      return list.map((p) => ({
+        ...p,
+        firstName: repairGarbledAccents(p.firstName),
+        lastName: repairGarbledAccents(p.lastName),
+        companyName: repairGarbledAccents(p.companyName),
+        jobTitle: repairGarbledAccents(p.jobTitle),
+        city: repairGarbledAccents(p.city),
+        sector: repairGarbledAccents(p.sector),
+        notes: p.notes ? repairGarbledAccents(p.notes) : p.notes,
+      }));
     } catch {
       return [...initialProspects];
     }
@@ -60,15 +72,15 @@ export function mapBackendToProspect(dto: ProspectResponse): Prospect {
 
   return {
     id: dto.id,
-    firstName: dto.firstName,
-    lastName: dto.lastName,
+    firstName: repairGarbledAccents(dto.firstName),
+    lastName: repairGarbledAccents(dto.lastName),
     email: dto.email,
     phone: dto.phone || dto.whatsappNumber || '',
     companyId: dto.companyId || 'comp-unknown',
-    companyName: dto.companyName || 'Entreprise non renseignée',
-    jobTitle: dto.jobTitle || 'Décideur',
-    city: dto.city || 'Dakar',
-    sector: dto.industry || 'Technologies',
+    companyName: repairGarbledAccents(dto.companyName || 'Entreprise non renseignée'),
+    jobTitle: repairGarbledAccents(dto.jobTitle || 'Décideur'),
+    city: repairGarbledAccents(dto.city || 'Dakar'),
+    sector: repairGarbledAccents(dto.industry || 'Technologies'),
     status: statusMap[dto.status] || 'new',
     source: (dto.source?.toLowerCase() as any) || 'manual',
     lastActivityAt: dto.updatedAt || dto.createdAt || new Date().toISOString(),
@@ -77,7 +89,7 @@ export function mapBackendToProspect(dto: ProspectResponse): Prospect {
       score: dto.leadScore ?? 70,
       level: levelMap[dto.leadScoreLevel] || 'Moyen',
       factors: reasonsList.map((reason, idx) => ({
-        label: reason,
+        label: repairGarbledAccents(reason),
         points: idx === 0 ? 30 : 20,
       })),
     },
@@ -438,15 +450,15 @@ export const prospectsApi = {
         if (!row.email && !row.phone) continue;
         const p: Prospect = {
           id: `pros-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          firstName: row.firstName || row.first_name || 'Inconnu',
-          lastName: row.lastName || row.last_name || '',
-          email: row.email || '',
+          firstName: repairGarbledAccents(row.firstName || row.first_name || 'Inconnu'),
+          lastName: repairGarbledAccents(row.lastName || row.last_name || ''),
+          email: (row.email || '').toLowerCase().trim(),
           phone: row.phone || row.telephone || '',
           companyId: `comp-${Date.now()}`,
-          companyName: row.companyName || row.company || row.entreprise || 'Entreprise',
-          jobTitle: row.jobTitle || row.title || row.poste || 'Responsable',
-          city: row.city || row.ville || 'Dakar',
-          sector: row.sector || row.industrie || 'Services',
+          companyName: repairGarbledAccents(row.companyName || row.company || row.entreprise || 'Entreprise'),
+          jobTitle: repairGarbledAccents(row.jobTitle || row.title || row.poste || 'Responsable'),
+          city: repairGarbledAccents(row.city || row.ville || 'Dakar'),
+          sector: repairGarbledAccents(row.sector || row.industrie || 'Services'),
           status: 'new',
           source: 'csv',
           score: {

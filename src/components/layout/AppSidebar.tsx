@@ -4,8 +4,11 @@ import {
   LayoutDashboard,
   Users,
   Building2,
+  Search,
+  ListFilter,
   Megaphone,
   MessageSquare,
+  CheckSquare,
   Kanban,
   BarChart3,
   Settings,
@@ -27,17 +30,30 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 }) => {
   const { user, organization, logout } = useAuth();
 
-  const principalNav = [
+  // Navigation matching CDC § 64
+  const dashboardNav = [
     { label: 'Tableau de bord', to: '/app', icon: LayoutDashboard, end: true },
+  ];
+
+  const prospectionNav = [
     { label: 'Prospects', to: '/app/prospects', icon: Users, end: false },
     { label: 'Entreprises', to: '/app/companies', icon: Building2, end: false },
+    { label: 'Recherche', to: '/app/discovery', icon: Search, end: false },
+    { label: 'Listes', to: '/app/lists', icon: ListFilter, end: false },
+  ];
+
+  const engagementNav = [
     { label: 'Campagnes', to: '/app/campaigns', icon: Megaphone, end: false },
     { label: 'Conversations', to: '/app/conversations', icon: MessageSquare, end: false },
+    { label: 'Tâches', to: '/app/tasks', icon: CheckSquare, end: false },
+  ];
+
+  const crmNav = [
     { label: 'Pipeline', to: '/app/pipeline', icon: Kanban, end: false },
   ];
 
   const analyseNav = [
-    { label: 'Analyses', to: '/app/analytics', icon: BarChart3, end: false },
+    { label: 'Analytics', to: '/app/analytics', icon: BarChart3, end: false },
   ];
 
   const configNav = [
@@ -75,15 +91,87 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           )}
         </div>
 
-        {/* Navigation Sections */}
-        <nav className="p-3 space-y-6 overflow-y-auto">
-          {/* Section: Principal */}
+        {/* Navigation Sections (CDC § 64) */}
+        <nav className="p-3 space-y-5 overflow-y-auto max-h-[calc(100vh-8.5rem)]">
+          {/* Section: Tableau de bord */}
           <div>
-            <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Principal
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Tableau de bord
             </div>
-            <div className="space-y-1">
-              {principalNav.map((item) => {
+            <div className="space-y-0.5">
+              {dashboardNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onCloseMobile}
+                    className={linkClass}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section: Prospection */}
+          <div>
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Prospection
+            </div>
+            <div className="space-y-0.5">
+              {prospectionNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onCloseMobile}
+                    className={linkClass}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section: Engagement */}
+          <div>
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Engagement
+            </div>
+            <div className="space-y-0.5">
+              {engagementNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onCloseMobile}
+                    className={linkClass}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section: CRM */}
+          <div>
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              CRM
+            </div>
+            <div className="space-y-0.5">
+              {crmNav.map((item) => {
                 const Icon = item.icon;
                 return (
                   <NavLink
@@ -103,10 +191,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
           {/* Section: Analyse */}
           <div>
-            <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
               Analyse
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {analyseNav.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -127,10 +215,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
           {/* Section: Configuration */}
           <div>
-            <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
               Configuration
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {configNav.map((item) => {
                 const Icon = item.icon;
                 return (

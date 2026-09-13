@@ -39,7 +39,12 @@ export type AppPermission =
   | 'discovery:search'
   | 'discovery:import'
   // Lead Lists
-  | 'lead_list:manage';
+  | 'lead_list:manage'
+  // Commercial Tasks
+  | 'task:manage'
+  | 'task:view'
+  // Prospect Export
+  | 'prospect:export';
 
 /**
  * Strict Role-Based Access Control (RBAC) Permission Matrix
@@ -57,6 +62,7 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'prospect:score',
     'prospect:import',
     'prospect:enrich',
+    'prospect:export',
     'company:create',
     'company:update',
     'company:analyze',
@@ -73,6 +79,8 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'discovery:search',
     'discovery:import',
     'lead_list:manage',
+    'task:manage',
+    'task:view',
   ],
 
   ORG_ADMIN: [
@@ -87,6 +95,7 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'prospect:score',
     'prospect:import',
     'prospect:enrich',
+    'prospect:export',
     'company:create',
     'company:update',
     'company:analyze',
@@ -103,6 +112,8 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'discovery:search',
     'discovery:import',
     'lead_list:manage',
+    'task:manage',
+    'task:view',
   ],
 
   SALES_MANAGER: [
@@ -114,6 +125,7 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'prospect:score',
     'prospect:import',
     'prospect:enrich',
+    'prospect:export',
     'company:create',
     'company:update',
     'company:analyze',
@@ -130,6 +142,8 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'discovery:search',
     'discovery:import',
     'lead_list:manage',
+    'task:manage',
+    'task:view',
   ],
 
   SALES_REP: [
@@ -140,6 +154,7 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'prospect:score',
     'prospect:import',
     'prospect:enrich',
+    'prospect:export',
     'company:create',
     'company:update',
     'company:analyze',
@@ -151,11 +166,14 @@ export const ROLE_PERMISSIONS_MAP: Record<UserRole, AppPermission[]> = {
     'discovery:search',
     'discovery:import',
     'lead_list:manage',
+    'task:manage',
+    'task:view',
   ],
 
   VIEWER: [
     'billing:view',
     'team:view',
+    'task:view',
   ],
 };
 

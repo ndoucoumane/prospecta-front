@@ -197,4 +197,20 @@ export const leadListsApi = {
       }
     });
   },
+
+  /**
+   * DELETE /api/v1/lead-lists/{id}
+   * Supprimer une liste de prospects
+   */
+  async deleteList(listId: string): Promise<void> {
+    return executeWithPermission('lead_list:manage', async () => {
+      try {
+        await apiDelete<void>(`/api/v1/lead-lists/${listId}`);
+      } catch {
+        const lists = loadLocalLists();
+        const filtered = lists.filter((item) => item.id !== listId);
+        saveLocalLists(filtered);
+      }
+    });
+  },
 };

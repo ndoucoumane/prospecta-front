@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../app/providers/AuthProvider';
 import { useToast } from '../../app/providers/ToastProvider';
+import { extractApiErrorMessage } from '../../api';
 
 const signupSchema = z
   .object({
@@ -15,6 +16,7 @@ const signupSchema = z
     lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
     email: z.string().email('Adresse email professionnelle non valide'),
     organizationName: z.string().min(2, 'Le nom de l\'organisation est requis'),
+    phone: z.string().optional(),
     password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
     confirmPassword: z.string(),
   })
@@ -42,6 +44,7 @@ export const SignupPage: React.FC = () => {
       lastName: '',
       email: '',
       organizationName: '',
+      phone: '',
       password: '',
       confirmPassword: '',
     },
@@ -56,11 +59,12 @@ export const SignupPage: React.FC = () => {
         email: data.email,
         organizationName: data.organizationName,
         password: data.password,
+        phone: data.phone?.trim() || undefined,
       });
       showToast('Votre compte organisation a été créé avec succès.');
       navigate('/app', { replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erreur lors de la création du compte.';
+      const msg = extractApiErrorMessage(err, 'Erreur lors de la création du compte.');
       setErrorMsg(msg);
     }
   };
@@ -117,6 +121,15 @@ export const SignupPage: React.FC = () => {
               helperText="Votre devise commerciale sera configurée par défaut en FCFA (Sénégal)."
               error={errors.organizationName?.message}
               {...register('organizationName')}
+            />
+
+            <Input
+              label="Numéro de téléphone (optionnel)"
+              type="tel"
+              placeholder="+221 77 123 45 67"
+              helperText="Permet de configurer vos campagnes WhatsApp et notifications."
+              error={errors.phone?.message}
+              {...register('phone')}
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

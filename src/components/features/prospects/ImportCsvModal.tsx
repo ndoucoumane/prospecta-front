@@ -4,6 +4,7 @@ import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
 import { prospectsApi } from '../../../api';
 import { useToast } from '../../../app/providers/ToastProvider';
+import { readCsvFileWithEncoding, parseProspectCsv, type ParsedCsvProspectRow } from '../../../lib/csvReader';
 
 interface ImportCsvModalProps {
   isOpen: boolean;
@@ -16,14 +17,8 @@ interface ParsedFileMetadata {
   name: string;
   sizeFormatted: string;
   rowCount: number;
-  sampleRows: Array<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone?: string;
-    companyName: string;
-    jobTitle: string;
-  }>;
+  sampleRows: ParsedCsvProspectRow[];
+  allRows: ParsedCsvProspectRow[];
 }
 
 export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
@@ -36,7 +31,12 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   const [fileMeta, setFileMeta] = useState<ParsedFileMetadata | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [importResult, setImportResult] = useState<{ importedCount: number } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    importedCount: number;
+    duplicates?: number;
+    invalid?: number;
+    errors?: string[];
+  } | null>(null);
 
   const resetState = () => {
     setFileMeta(null);
@@ -45,24 +45,30 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setError(null);
     setImportResult(null);
 
-    // Frontend validation: extension, MIME, size (max 2MB)
+    // Frontend validation: extension, MIME, size (max 5MB)
     const validExtensions = ['.csv', '.txt'];
     const hasValidExt = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
     if (!hasValidExt) {
-      setError('Format non supporté. Veuillez sélectionner un fichier CSV (.csv).');
+      if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+        setError(
+          "Vous avez sélectionné un fichier Excel (.xlsx / .xls). Pour l'importer : dans Excel, cliquez sur 'Fichier' > 'Enregistrer sous' > choisissez le format 'CSV' ou 'CSV UTF-8 (*.csv)', puis sélectionnez ce nouveau fichier .csv."
+        );
+      } else {
+        setError('Format non supporté. Veuillez sélectionner un fichier CSV (.csv).');
+      }
       return;
     }
 
-    const maxSize = 2 * 1024 * 1024; // 2MB
+    const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      setError('Le fichier est trop volumineux (taille maximale autorisée : 2 Mo).');
+      setError('Le fichier est trop volumineux (taille maximale autorisée : 5 Mo).');
       return;
     }
 
@@ -71,53 +77,60 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         ? `${(file.size / (1024 * 1024)).toFixed(2)} Mo`
         : `${(file.size / 1024).toFixed(1)} Ko`;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text
-          .split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0);
+    try {
+      // 1. Automatic encoding detection: UTF-8, Windows-1252 (Excel ANSI), ISO-8859-1
+      // Preserves French & West African accents: é, è, à, ô, ê, ç, •, etc.
+      const { text, cleanUtf8File } = await readCsvFileWithEncoding(file);
+      const { rows, totalRows } = parseProspectCsv(text);
 
-        if (lines.length <= 1) {
-          setError('Le fichier CSV est vide ou ne contient aucune ligne de données.');
-          return;
-        }
-
-        const dataRows = lines.slice(1);
-        const parsedRows = dataRows.map((line, idx) => {
-          const cols = line.split(/[,;]/).map((c) => c.replace(/^["']|["']$/g, '').trim());
-          return {
-            firstName: cols[0] || `Contact`,
-            lastName: cols[1] || `${idx + 1}`,
-            email: cols[2] || `contact${idx + 1}@entreprise.sn`,
-            phone: cols[3] || '+221 77 000 00 00',
-            companyName: cols[4] || 'Entreprise Importée',
-            jobTitle: cols[5] || 'Décideur',
-          };
-        });
-
-        setFileMeta({
-          file,
-          name: file.name,
-          sizeFormatted,
-          rowCount: dataRows.length,
-          sampleRows: parsedRows.slice(0, 3),
-        });
-      } catch {
-        setError('Impossible d\'analyser le fichier CSV. Vérifiez l\'encodage.');
+      if (totalRows === 0) {
+        setError('Le fichier CSV est vide ou ne contient aucune ligne de données exploitable.');
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      setFileMeta({
+        file: cleanUtf8File,
+        name: file.name,
+        sizeFormatted,
+        rowCount: totalRows,
+        sampleRows: rows.slice(0, 3),
+        allRows: rows,
+      });
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Impossible d'analyser le fichier CSV. Vérifiez l'encodage."
+      );
+    }
   };
 
   const handleImport = async () => {
     if (!fileMeta) return;
     setIsProcessing(true);
     try {
-      const res = await prospectsApi.importProspectsFromCsv(fileMeta.sampleRows);
-      setImportResult({ importedCount: res.importedCount });
+      // 1. First attempt: Direct multipart/form-data upload to backend (API § 5.7)
+      try {
+        const backendRes = await prospectsApi.importCsv(fileMeta.file);
+        if (backendRes) {
+          setImportResult({
+            importedCount: backendRes.created ?? backendRes.total,
+            duplicates: backendRes.duplicates,
+            invalid: backendRes.invalid,
+            errors: backendRes.errors,
+          });
+          showToast(`${backendRes.created ?? backendRes.total} prospects importés avec succès.`);
+          onImportSuccess();
+          return;
+        }
+      } catch {
+        // Fallback below to all parsed rows
+      }
+
+      // 2. Fallback: Parse and import all rows locally
+      const res = await prospectsApi.importProspectsFromCsv(fileMeta.allRows as any);
+      setImportResult({
+        importedCount: res.importedCount,
+        invalid: res.failed,
+      });
       showToast(`${res.importedCount} prospects importés avec succès.`);
       onImportSuccess();
     } catch {
@@ -160,7 +173,7 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               Colonnes recommandées : Prénom, Nom, Email, Téléphone, Entreprise, Fonction
             </p>
             <p className="text-[11px] text-gray-400 mt-2">
-              Formats acceptés : .csv (UTF-8) • Max 2 Mo
+              Formats acceptés : <strong>.csv</strong> (UTF-8, Windows-1252, ANSI, ISO-8859-1) • Accents français préservés • Max 5 Mo
             </p>
             <input
               ref={fileInputRef}
@@ -226,14 +239,38 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
 
         {/* 70. Import Result Feedback */}
         {importResult && (
-          <div className="border border-green-200 bg-green-50/50 rounded-lg p-5 text-center">
-            <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center mx-auto mb-2">
+          <div className="border border-green-200 bg-green-50/50 rounded-lg p-5 text-center space-y-3">
+            <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center mx-auto mb-1">
               <Check className="w-4 h-4" />
             </div>
-            <h4 className="text-sm font-bold text-gray-900">Résultat de l'import</h4>
-            <p className="text-xs text-gray-600 mt-1">
-              {importResult.importedCount} prospects ont été ajoutés à votre base commerciale.
+            <h4 className="text-sm font-bold text-gray-900">Résultat de l'import CSV</h4>
+            <p className="text-xs text-gray-700">
+              <strong>{importResult.importedCount}</strong> prospect(s) ajouté(s) avec succès à votre base commerciale.
             </p>
+
+            {(importResult.duplicates !== undefined && importResult.duplicates > 0 ||
+              importResult.invalid !== undefined && importResult.invalid > 0) && (
+              <div className="text-[11px] text-gray-600 bg-white p-2.5 rounded border border-gray-200 text-left space-y-1">
+                {importResult.duplicates !== undefined && importResult.duplicates > 0 && (
+                  <p>• {importResult.duplicates} doublon(s) détecté(s) et ignoré(s).</p>
+                )}
+                {importResult.invalid !== undefined && importResult.invalid > 0 && (
+                  <p>• {importResult.invalid} ligne(s) invalide(s) (format email ou téléphone non reconnu).</p>
+                )}
+              </div>
+            )}
+
+            {importResult.errors && importResult.errors.length > 0 && (
+              <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded border border-amber-200 text-left">
+                <p className="font-semibold mb-1">Avertissements de validation :</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  {importResult.errors.slice(0, 3).map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="mt-4 flex justify-center">
               <Button
                 size="sm"

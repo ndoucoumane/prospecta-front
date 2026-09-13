@@ -91,6 +91,54 @@ export type SubscriptionStatus =
   | 'INCOMPLETE';
 
 // ----------------------------------------------------------------------------
+// 1.1 Inscription, Connexion & Session (/api/v1/auth)
+// ----------------------------------------------------------------------------
+
+export interface AuthTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_expires_in: number;
+  scope: string;
+}
+
+export interface AuthUserResponse {
+  id: string;
+  organizationId: string;
+  keycloakSubject?: string;
+  firstName: string;
+  lastName: string;
+  fullName?: string;
+  email: string;
+  phone?: string | null;
+  jobTitle?: string | null;
+  role: UserRole;
+  status: UserStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AuthResponse {
+  token: AuthTokenResponse;
+  user: AuthUserResponse;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  companyName?: string;
+  phone?: string;
+}
+
+// ----------------------------------------------------------------------------
 // 3. Organisations & Espaces de Travail (/api/v1/organizations)
 // ----------------------------------------------------------------------------
 

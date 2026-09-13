@@ -13,5 +13,7 @@ export * from './analytics';
 export * from './billing';
 export * from './discovery';
 export * from './leadLists';
+export * from './tasks';
 export * from '../types/api';
+export * from '../types/tasks';
 export * from '../security';

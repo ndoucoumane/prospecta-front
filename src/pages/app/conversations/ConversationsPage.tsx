@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Send,
@@ -10,12 +11,17 @@ import {
   ArrowLeft,
   CheckCheck,
   RotateCcw,
+  Plus,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { Modal } from '../../../components/ui/Modal';
+import { Input } from '../../../components/ui/Input';
+import { Select } from '../../../components/ui/Select';
 import { LoadingState } from '../../../components/ui/LoadingState';
-import { conversationsApi, aiApi } from '../../../api';
+import { conversationsApi, aiApi, pipelineApi } from '../../../api';
 import { useToast } from '../../../app/providers/ToastProvider';
-import type { Channel } from '../../../types';
+import type { Channel, PipelineStage } from '../../../types';
 
 export const ConversationsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -26,6 +32,37 @@ export const ConversationsPage: React.FC = () => {
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isGeneratingAIReply, setIsGeneratingAIReply] = useState(false);
+
+  // Quick Opportunity Modal State (CDC § 2, § 68)
+  const [isCreateOppModalOpen, setIsCreateOppModalOpen] = useState(false);
+  const [oppTitle, setOppTitle] = useState('');
+  const [oppValue, setOppValue] = useState('1500000');
+  const [oppStage, setOppStage] = useState<PipelineStage>('qualified');
+
+  const createOppMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedConvId) throw new Error('Aucune conversation sélectionnée');
+      const conv = conversations?.find((c) => c.id === selectedConvId);
+      if (!conv) throw new Error('Conversation introuvable');
+      return pipelineApi.createOpportunity({
+        title: oppTitle.trim() || `Contrat B2B - ${conv.companyName}`,
+        prospectId: conv.prospectId,
+        prospectName: conv.prospectName,
+        companyName: conv.companyName,
+        value: parseInt(oppValue) || 1500000,
+        stage: oppStage,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      showToast('Opportunité commerciale créée dans le pipeline.');
+      setIsCreateOppModalOpen(false);
+      setOppTitle('');
+    },
+    onError: () => {
+      showToast('Erreur lors de la création de l\'opportunité.', 'error');
+    },
+  });
 
   // Load conversations list
   const { data: conversations, isLoading: isConvsLoading } = useQuery({
@@ -266,6 +303,23 @@ export const ConversationsPage: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   {renderChannelBadge(selectedConv.channel)}
+                  <Link to={`/app/prospects/${selectedConv.prospectId}`}>
+                    <Button size="sm" variant="secondary" className="text-[11px] h-7 px-2">
+                      Fiche prospect
+                    </Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="text-[11px] h-7 px-2 text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
+                    onClick={() => {
+                      setOppTitle(`Contrat B2B - ${selectedConv.companyName}`);
+                      setIsCreateOppModalOpen(true);
+                    }}
+                    leftIcon={<Plus className="w-3 h-3" />}
+                  >
+                    Créer opportunité
+                  </Button>
                 </div>
               </div>
 
@@ -309,24 +363,34 @@ export const ConversationsPage: React.FC = () => {
                 )}
               </div>
 
-              {/* 43. AI Reply Assistant: Suggested Reply Box */}
+              {/* 43. AI Reply Assistant: Suggested Reply Box & Intent Detection (CDC § 23, § 29) */}
               {selectedConv.suggestedReply && (
-                <div className="border-t border-b border-blue-200 bg-blue-50/50 p-3 text-xs space-y-2">
+                <div className="border-t border-b border-blue-200 bg-blue-50/50 p-3 text-xs space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-blue-900 font-semibold">
                       <Bot className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Réponse suggérée</span>
+                      <span>Assistant IA Copilot & Détection d'Intention</span>
                     </div>
                     <span className="text-[10px] text-gray-500">
                       Modifiable avant envoi
                     </span>
                   </div>
 
-                  <p className="text-gray-700 italic bg-white p-2 rounded border border-blue-100">
-                    "{selectedConv.suggestedReply}"
+                  {/* AI Intent and Recommended Action Badges (CDC § 23) */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
+                      <Sparkles className="w-3 h-3" /> Intention : Demande de rendez-vous / intérêt marqué (+15 pts)
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-medium border border-amber-200">
+                      ⚡ Action recommandée : Confirmer un créneau et inscrire l'affaire au Pipeline
+                    </span>
+                  </div>
+
+                  <p className="text-gray-700 italic bg-white p-2.5 rounded border border-blue-100 leading-relaxed">
+                    &quot;{selectedConv.suggestedReply}&quot;
                   </p>
 
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -338,12 +402,23 @@ export const ConversationsPage: React.FC = () => {
                     </Button>
                     <Button
                       size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setOppTitle(`Prospection - ${selectedConv.companyName}`);
+                        setIsCreateOppModalOpen(true);
+                      }}
+                      leftIcon={<Plus className="w-3 h-3" />}
+                    >
+                      Créer opportunité
+                    </Button>
+                    <Button
+                      size="sm"
                       onClick={() => {
                         setMessageInput(selectedConv.suggestedReply || '');
                         showToast('Réponse insérée dans le champ de saisie.');
                       }}
                     >
-                      Utiliser la réponse
+                      Insérer la réponse
                     </Button>
                   </div>
                 </div>
@@ -378,6 +453,70 @@ export const ConversationsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Quick Opportunity Creation Modal (CDC § 2, § 68) */}
+      {selectedConv && (
+        <Modal
+          isOpen={isCreateOppModalOpen}
+          onClose={() => setIsCreateOppModalOpen(false)}
+          title="Créer une opportunité commerciale"
+          description={`Convertissez la réponse de ${selectedConv.prospectName} (${selectedConv.companyName}) en opportunité dans le Pipeline.`}
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <Input
+              label="Titre de l'affaire"
+              value={oppTitle}
+              onChange={(e) => setOppTitle(e.target.value)}
+              placeholder="Ex: Sonatel B2B — Déploiement 50 licences"
+              required
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Montant estimé (FCFA)"
+                type="number"
+                value={oppValue}
+                onChange={(e) => setOppValue(e.target.value)}
+                required
+              />
+
+              <Select
+                label="Étape du pipeline"
+                value={oppStage}
+                onChange={(e) => setOppStage(e.target.value as PipelineStage)}
+                options={[
+                  { value: 'new', label: 'Nouveau' },
+                  { value: 'qualified', label: 'Qualifié' },
+                  { value: 'meeting', label: 'Rendez-vous' },
+                  { value: 'proposal', label: 'Proposition' },
+                  { value: 'negotiation', label: 'Négociation' },
+                ]}
+              />
+            </div>
+
+            <div className="p-3 bg-gray-50 rounded border border-gray-200 text-xs text-gray-600">
+              <p><strong>Contact :</strong> {selectedConv.prospectName}</p>
+              <p><strong>Entreprise :</strong> {selectedConv.companyName}</p>
+              <p><strong>Canal source :</strong> {selectedConv.channel.toUpperCase()}</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="secondary" size="sm" onClick={() => setIsCreateOppModalOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => createOppMutation.mutate()}
+                isLoading={createOppMutation.isPending}
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+              >
+                Inscrire au Pipeline
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

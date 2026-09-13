@@ -14,6 +14,7 @@ export const PipelinePage: React.FC = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [draggedOppId, setDraggedOppId] = useState<string | null>(null);
 
   // New Opp Form State
   const [newTitle, setNewTitle] = useState('');
@@ -25,6 +26,11 @@ export const PipelinePage: React.FC = () => {
   const { data: opportunities, isLoading } = useQuery({
     queryKey: ['opportunities'],
     queryFn: () => pipelineApi.getOpportunities(),
+  });
+
+  const { data: overview } = useQuery({
+    queryKey: ['pipeline-overview'],
+    queryFn: () => pipelineApi.getOverview(),
   });
 
   const updateStageMutation = useMutation({
@@ -104,11 +110,11 @@ export const PipelinePage: React.FC = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Pipeline commercial</h1>
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
-              Total : {formatFCFA(totalPipelineValue)}
+              Total : {formatFCFA(overview?.totalPipelineValue ?? totalPipelineValue)}
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Suivi des opportunités à travers les 8 étapes de conversion.
+            Suivi des opportunités à travers les 8 étapes de conversion (Glisser-déposer disponible).
           </p>
         </div>
 
@@ -121,7 +127,7 @@ export const PipelinePage: React.FC = () => {
         </Button>
       </div>
 
-      {/* 44. Kanban Board (8 Columns, Sobres, Flat, No shadows) */}
+      {/* 44. Kanban Board (8 Columns, Sobres, Flat, No shadows, Drag & Drop CDC § 35) */}
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-3.5 min-w-[1280px]">
           {stages.map((stage) => {
@@ -146,17 +152,40 @@ export const PipelinePage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Cards Container */}
-                <div className="p-2 space-y-2.5 flex-1 min-h-[420px] overflow-y-auto">
+                {/* Cards Container with Drag & Drop (CDC § 35) */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const oppId = e.dataTransfer.getData('text/plain') || draggedOppId;
+                    if (oppId) {
+                      updateStageMutation.mutate({ id: oppId, stage: stage.key });
+                      setDraggedOppId(null);
+                    }
+                  }}
+                  className="p-2 space-y-2.5 flex-1 min-h-[420px] overflow-y-auto"
+                >
                   {stageOpps.length === 0 ? (
                     <div className="h-24 border border-dashed border-gray-200 rounded flex items-center justify-center text-[11px] text-gray-400">
-                      Aucune affaire
+                      Glissez une affaire ici
                     </div>
                   ) : (
                     stageOpps.map((opp) => (
                       <div
                         key={opp.id}
-                        className="bg-white border border-gray-200 rounded-md p-3 space-y-2 text-xs select-none"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', opp.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggedOppId(opp.id);
+                        }}
+                        onDragEnd={() => setDraggedOppId(null)}
+                        className={`bg-white border rounded-md p-3 space-y-2 text-xs select-none cursor-grab active:cursor-grabbing hover:border-blue-300 transition-all ${
+                          draggedOppId === opp.id ? 'opacity-50 border-blue-500 shadow-sm' : 'border-gray-200'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-1">
                           <span className="font-bold text-gray-900 line-clamp-1">

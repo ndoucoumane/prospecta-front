@@ -10,6 +10,8 @@ import {
   ChevronRight,
   TrendingUp,
   Plus,
+  Search,
+  CheckSquare,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -57,18 +59,23 @@ export const DashboardPage: React.FC = () => {
             Bonjour {user?.firstName || 'Mor'},
           </h1>
           <p className="text-xs sm:text-sm text-gray-600 mt-1">
-            Voici l'activité commerciale de votre organisation.
+            Voici l'activité commerciale de votre organisation (Sénégal & Afrique de l'Ouest).
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/app/discovery">
+            <Button size="sm" variant="secondary" leftIcon={<Search className="w-4 h-4 text-blue-600" />}>
+              Recherche Discovery
+            </Button>
+          </Link>
+          <Link to="/app/tasks">
+            <Button size="sm" variant="secondary" leftIcon={<CheckSquare className="w-4 h-4 text-green-600" />}>
+              Tâches
+            </Button>
+          </Link>
           <Link to="/app/campaigns/new">
             <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
               Nouvelle campagne
-            </Button>
-          </Link>
-          <Link to="/app/prospects">
-            <Button size="sm" variant="secondary" leftIcon={<Users className="w-4 h-4" />}>
-              Voir les prospects
             </Button>
           </Link>
         </div>

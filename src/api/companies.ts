@@ -8,6 +8,7 @@ import type {
   PageResponse,
 } from '../types/api';
 import { initialCompanies } from './mockData';
+import { repairGarbledAccents } from '../lib/csvReader';
 
 const STORAGE_KEY = 'prospecta_companies';
 
@@ -15,7 +16,13 @@ function loadLocalCompanies(): Company[] {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const list: Company[] = JSON.parse(stored);
+      return list.map((c) => ({
+        ...c,
+        name: repairGarbledAccents(c.name),
+        sector: repairGarbledAccents(c.sector),
+        city: repairGarbledAccents(c.city),
+      }));
     } catch {
       return [...initialCompanies];
     }
@@ -31,9 +38,9 @@ function saveLocalCompanies(companies: Company[]) {
 export function mapBackendToCompany(dto: CompanyResponse): Company {
   return {
     id: dto.id,
-    name: dto.name,
-    sector: dto.industry || 'Technologies & Télécoms',
-    city: dto.city || 'Dakar',
+    name: repairGarbledAccents(dto.name),
+    sector: repairGarbledAccents(dto.industry || 'Technologies & Télécoms'),
+    city: repairGarbledAccents(dto.city || 'Dakar'),
     website: dto.website || '',
     size: dto.employeeCount ? `${dto.employeeCount}+` : '50+',
     contactCount: dto.contactCount ?? 1,

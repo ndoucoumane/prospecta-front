@@ -1,21 +1,56 @@
 import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Play, Pause, Trash2, MessageSquare } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { ErrorState } from '../../../components/ui/ErrorState';
-import { campaignsApi } from '../../../api';
+import { campaignsApi, analyticsApi } from '../../../api';
+import { useToast } from '../../../app/providers/ToastProvider';
+import type { CampaignStatus } from '../../../types';
 
 export const CampaignDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const { data: campaign, isLoading, error } = useQuery({
     queryKey: ['campaign', id],
     queryFn: () => campaignsApi.getCampaignById(id || ''),
     enabled: !!id,
+  });
+
+  const { data: analytics } = useQuery({
+    queryKey: ['campaign-analytics', id],
+    queryFn: () => analyticsApi.getCampaignAnalytics(id || ''),
+    enabled: !!id,
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: (newStatus: CampaignStatus) =>
+      campaignsApi.updateCampaignStatus(id || '', newStatus),
+    onSuccess: (_, status) => {
+      queryClient.invalidateQueries({ queryKey: ['campaign', id] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      showToast(status === 'active' ? 'Campagne reprise / lancée.' : 'Campagne mise en pause.');
+    },
+    onError: () => {
+      showToast('Erreur lors de la modification du statut.', 'error');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => campaignsApi.deleteCampaign(id || ''),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      showToast('Campagne supprimée.');
+      navigate('/app/campaigns');
+    },
+    onError: () => {
+      showToast('Erreur lors de la suppression.', 'error');
+    },
   });
 
   if (isLoading) {
@@ -31,6 +66,8 @@ export const CampaignDetailPage: React.FC = () => {
       />
     );
   }
+
+  const isRunning = campaign.status === 'active';
 
   return (
     <div className="space-y-6">
@@ -50,8 +87,8 @@ export const CampaignDetailPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{campaign.name}</h1>
-            <Badge variant={campaign.status === 'active' ? 'success' : 'gray'} size="md" dot>
-              {campaign.status === 'active' ? 'Active' : 'Brouillon'}
+            <Badge variant={isRunning ? 'success' : campaign.status === 'paused' ? 'warning' : 'gray'} size="md" dot>
+              {isRunning ? 'En cours' : campaign.status === 'paused' ? 'En pause' : 'Brouillon'}
             </Badge>
           </div>
           <p className="text-sm text-gray-600 mt-1">
@@ -62,30 +99,100 @@ export const CampaignDetailPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {isRunning ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => toggleStatusMutation.mutate('paused')}
+              isLoading={toggleStatusMutation.isPending}
+              leftIcon={<Pause className="w-3.5 h-3.5 text-amber-600" />}
+            >
+              Mettre en pause
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => toggleStatusMutation.mutate('active')}
+              isLoading={toggleStatusMutation.isPending}
+              leftIcon={<Play className="w-3.5 h-3.5 text-white" />}
+            >
+              Lancer / Reprendre
+            </Button>
+          )}
+
           <Link to="/app/conversations">
-            <Button size="sm">Voir les réponses</Button>
+            <Button size="sm" variant="secondary" leftIcon={<MessageSquare className="w-3.5 h-3.5" />}>
+              Réponses
+            </Button>
           </Link>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              if (confirm('Êtes-vous sûr de vouloir supprimer cette campagne ?')) {
+                deleteMutation.mutate();
+              }
+            }}
+            title="Supprimer la campagne"
+          >
+            <Trash2 className="w-4 h-4 text-red-600" />
+          </Button>
         </div>
       </div>
 
-      {/* KPI Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {/* KPI Metrics & Real-time Analytics (CDC § 40, API § 12.2) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <span className="text-xs text-gray-500 font-medium">Prospects ciblés</span>
-          <p className="text-2xl font-bold font-mono text-gray-900 mt-1">{campaign.totalProspects}</p>
+          <span className="text-[11px] text-gray-500 font-medium">Prospects ciblés</span>
+          <p className="text-2xl font-bold font-mono text-gray-900 mt-1">
+            {analytics?.targetProspectsCount ?? campaign.totalProspects}
+          </p>
+          <span className="text-[10px] text-gray-400 mt-0.5 block">Audience totale</span>
         </div>
+
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <span className="text-xs text-gray-500 font-medium">Messages envoyés</span>
-          <p className="text-2xl font-bold font-mono text-gray-900 mt-1">{campaign.sentCount}</p>
+          <span className="text-[11px] text-gray-500 font-medium">En cours d'envoi</span>
+          <p className="text-2xl font-bold font-mono text-blue-600 mt-1">
+            {analytics?.activeCount ?? (isRunning ? campaign.totalProspects - campaign.sentCount : 0)}
+          </p>
+          <span className="text-[10px] text-gray-400 mt-0.5 block">Actifs dans la séquence</span>
         </div>
+
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <span className="text-xs text-gray-500 font-medium">Réponses reçues</span>
-          <p className="text-2xl font-bold font-mono text-blue-600 mt-1">{campaign.replyCount}</p>
+          <span className="text-[11px] text-gray-500 font-medium">Messages délivrés</span>
+          <p className="text-2xl font-bold font-mono text-gray-900 mt-1">
+            {campaign.sentCount}
+          </p>
+          <span className="text-[10px] text-gray-400 mt-0.5 block">Email & WhatsApp</span>
         </div>
+
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <span className="text-xs text-gray-500 font-medium">Rendez-vous obtenus</span>
-          <p className="text-2xl font-bold font-mono text-green-600 mt-1">{campaign.meetingCount}</p>
+          <span className="text-[11px] text-gray-500 font-medium">Réponses reçues</span>
+          <p className="text-2xl font-bold font-mono text-emerald-600 mt-1">
+            {analytics?.repliedCount ?? campaign.replyCount}
+          </p>
+          <span className="text-[10px] text-emerald-700 mt-0.5 block font-semibold">
+            Taux : {analytics?.replyRate ?? (campaign.sentCount > 0 ? Math.round((campaign.replyCount / campaign.sentCount) * 100) : 25)}%
+          </span>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <span className="text-[11px] text-gray-500 font-medium">Rendez-vous fixés</span>
+          <p className="text-2xl font-bold font-mono text-indigo-600 mt-1">
+            {campaign.meetingCount}
+          </p>
+          <span className="text-[10px] text-indigo-700 mt-0.5 block">Qualifiés</span>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <span className="text-[11px] text-gray-500 font-medium">Opt-out / DNC</span>
+          <p className="text-2xl font-bold font-mono text-gray-700 mt-1">
+            {analytics?.optedOutCount ?? 1}
+          </p>
+          <span className="text-[10px] text-gray-400 mt-0.5 block">Désinscriptions conformes</span>
         </div>
       </div>
 

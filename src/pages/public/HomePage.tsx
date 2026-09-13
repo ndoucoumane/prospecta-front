@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Users,
   Megaphone,
@@ -17,6 +17,22 @@ import { Button } from '../../components/ui/Button';
 import { FAQSection } from '../../components/landing/FAQSection';
 
 export const HomePage: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const targetId = location.hash.replace('#', '');
+      const element = document.getElementById(targetId);
+      if (element) {
+        // Allow layout to settle before scrolling
+        const timer = setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }, 80);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [location.hash]);
+
   return (
     <div className="bg-white">
       {/* 14 & 15. HERO SECTION: Typographic, clean, white background, no gradient, no 3D */}
@@ -36,7 +52,7 @@ export const HomePage: React.FC = () => {
           {/* CTAs */}
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/signup" className="w-full sm:w-auto">
-              <Button size="lg" className="w-full sm:w-auto" rightIcon={<ArrowRight className="w-4 h-4" />}>
+              <Button size="lg" className="w-full sm:w-auto">
                 Commencer gratuitement
               </Button>
             </Link>
@@ -66,7 +82,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 74. COMMENT ÇA FONCTIONNE (4 étapes simples) */}
-      <section className="py-16 md:py-20 border-b border-gray-200 bg-gray-50/50">
+      <section id="comment-ca-marche" className="py-16 md:py-20 border-b border-gray-200 bg-gray-50/50 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
@@ -120,7 +136,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 16. SECTION PRODUIT (4 capacités en grille 2 colonnes desktop, 1 colonne mobile) */}
-      <section id="solutions" className="py-16 md:py-24 border-b border-gray-200">
+      <section id="solutions" className="py-16 md:py-24 border-b border-gray-200 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
@@ -133,7 +149,7 @@ export const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Prospects */}
-            <div className="border border-gray-200 rounded-lg p-6 bg-white">
+            <div id="prospects" className="border border-gray-200 rounded-lg p-6 bg-white scroll-mt-24 transition-shadow hover:border-blue-300">
               <div className="w-9 h-9 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4">
                 <Users className="w-5 h-5" />
               </div>
@@ -154,7 +170,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Campagnes */}
-            <div className="border border-gray-200 rounded-lg p-6 bg-white">
+            <div id="campagnes" className="border border-gray-200 rounded-lg p-6 bg-white scroll-mt-24 transition-shadow hover:border-blue-300">
               <div className="w-9 h-9 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4">
                 <Megaphone className="w-5 h-5" />
               </div>
@@ -175,7 +191,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Conversations */}
-            <div className="border border-gray-200 rounded-lg p-6 bg-white">
+            <div id="conversations" className="border border-gray-200 rounded-lg p-6 bg-white scroll-mt-24 transition-shadow hover:border-blue-300">
               <div className="w-9 h-9 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4">
                 <MessageSquare className="w-5 h-5" />
               </div>
@@ -196,7 +212,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Pipeline */}
-            <div className="border border-gray-200 rounded-lg p-6 bg-white">
+            <div id="pipeline" className="border border-gray-200 rounded-lg p-6 bg-white scroll-mt-24 transition-shadow hover:border-blue-300">
               <div className="w-9 h-9 rounded-md bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4">
                 <Kanban className="w-5 h-5" />
               </div>
@@ -220,7 +236,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 75. FEATURES GRID */}
-      <section className="py-16 md:py-20 border-b border-gray-200 bg-gray-50/50">
+      <section id="fonctionnalites" className="py-16 md:py-20 border-b border-gray-200 bg-gray-50/50 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
@@ -234,46 +250,55 @@ export const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
               {
+                anchorId: 'ciblage',
                 icon: <Target className="w-4 h-4 text-blue-600" />,
                 title: 'Prospection ciblée',
                 desc: 'Trouvez et filtrez les prospects selon le secteur, la ville (Dakar, Thiès, Saly...) et la fonction.',
               },
               {
+                anchorId: 'scoring',
                 icon: <Users className="w-4 h-4 text-blue-600" />,
                 title: 'Lead scoring',
                 desc: 'Classez instantanément vos leads selon leur niveau d\'adéquation avec votre offre commerciale.',
               },
               {
+                anchorId: 'ia-scoring',
                 icon: <Bot className="w-4 h-4 text-blue-600" />,
                 title: 'Assistance IA sobre',
                 desc: 'Générez des messages et des synthèses d\'entreprises toujours éditables par un humain.',
               },
               {
+                anchorId: 'campagnes-auto',
                 icon: <Megaphone className="w-4 h-4 text-blue-600" />,
                 title: 'Campagnes automatisées',
                 desc: 'Programmez des séquences de contact multicanales et suivez leurs statistiques de délivrance.',
               },
               {
+                anchorId: 'whatsapp',
                 icon: <Phone className="w-4 h-4 text-blue-600" />,
                 title: 'WhatsApp Business',
                 desc: 'Connectez votre canal WhatsApp d\'entreprise pour toucher vos décideurs là où ils répondent.',
               },
               {
+                anchorId: 'entreprises',
                 icon: <Building2 className="w-4 h-4 text-blue-600" />,
                 title: 'Fiches entreprises',
                 desc: 'Accédez à l\'annuaire complet des organisations cibles et à l\'historique des contacts associés.',
               },
               {
+                anchorId: 'conversations-grid',
                 icon: <MessageSquare className="w-4 h-4 text-blue-600" />,
                 title: 'Conversations unifiées',
                 desc: 'Centralisez l\'ensemble des échanges prospects pour éviter tout doublon dans l\'équipe.',
               },
               {
+                anchorId: 'pipeline-grid',
                 icon: <Kanban className="w-4 h-4 text-blue-600" />,
                 title: 'Pipeline Kanban',
                 desc: 'Pilotez l\'entonnoir commercial étape par étape avec gestion des montants prévisionnels.',
               },
               {
+                anchorId: 'analyses',
                 icon: <BarChart3 className="w-4 h-4 text-blue-600" />,
                 title: 'Analyses & KPI',
                 desc: 'Mesurez le taux de conversion, le volume de rendez-vous et le retour sur investissement.',
@@ -281,7 +306,8 @@ export const HomePage: React.FC = () => {
             ].map((f) => (
               <div
                 key={f.title}
-                className="bg-white border border-gray-200 rounded-md p-5 flex flex-col justify-between"
+                id={f.anchorId}
+                className="bg-white border border-gray-200 rounded-md p-5 flex flex-col justify-between scroll-mt-24 transition-shadow hover:border-blue-300"
               >
                 <div>
                   <div className="w-8 h-8 rounded bg-blue-50 border border-blue-200 flex items-center justify-center mb-3">
