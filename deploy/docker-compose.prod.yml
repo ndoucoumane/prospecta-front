@@ -1,16 +1,18 @@
-version: '3.8'
-
 services:
   prospecta-front-prod:
-    image: ${FULL_IMAGE_NAME:-ghcr.io/ndoucoumane/prospecta-front:latest}
+    image: ${FULL_IMAGE_NAME}
     container_name: prospecta-front-prod
     restart: always
+
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
+
     networks:
       - infrastructure-network
+
     environment:
       - NODE_ENV=production
+
     # env_file:
     #   - prospecta-front-prod.env
 
