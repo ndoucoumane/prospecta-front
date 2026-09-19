@@ -144,29 +144,7 @@ pipeline {
             }
         }
 
-        stage('Build & Test NPM') {
-            steps {
-                script {
-                    echo "=== 4. Installation des dépendances et Build du frontend ==="
-                    
-                    echo "Installation des dépendances npm..."
-                    sh "npm ci"
-                    
-                    if (!params.SKIP_TESTS) {
-                        echo "Exécution des tests frontend..."
-                        sh "npm run test --if-present"
-                    } else {
-                        echo "Build sans exécution des tests frontend (-DskipTests coché)..."
-                    }
 
-                    echo "Build de l'application..."
-                    sh "npm run build"
-
-                    // Vérification que le build a bien été généré (Vite compile dans dist/)
-                    sh "ls -lah dist/"
-                }
-            }
-        }
 
         stage('Build & Push Docker Image') {
             steps {
