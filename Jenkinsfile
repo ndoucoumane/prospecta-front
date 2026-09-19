@@ -203,11 +203,11 @@ pipeline {
                     def prepCmd = """
                         set -e
                         mkdir -p ${env.REMOTE_DIR}
-                        # Création du réseau Docker partagé s'il n'existe pas encore
+                        # Creation du reseau Docker partage si inexistant
                         docker network create infrastructure-network 2>/dev/null || true
 
                         if [ ! -f ${env.ENV_FILE} ]; then
-                            echo "AVERTISSEMENT: Le fichier d'environnement ${env.ENV_FILE} est manquant sur le serveur !"
+                            echo "AVERTISSEMENT: Le fichier env ${env.ENV_FILE} est manquant sur le serveur !"
                         fi
                     """
 
@@ -273,7 +273,7 @@ pipeline {
                     // Le test est exécuté directement SUR LE SERVEUR via 127.0.0.1:${TARGET_PORT}
                     def checkHealthScript = """
                     set +e
-                    echo "Sondage de l'état de santé local sur : ${env.HEALTH_URL}"
+                    echo "Sondage de la sante locale sur : ${env.HEALTH_URL}"
                     MAX_ATTEMPTS=15
                     SLEEP_TIME=5
 
@@ -283,16 +283,16 @@ pipeline {
 
                         if [ "\$HTTP_CODE" = "200" ]; then
                             echo "=================================================="
-                            echo " Conteneur ${env.CONTAINER_NAME} démarré avec succès (Statut: UP HTTP 200) ! "
+                            echo " Conteneur ${env.CONTAINER_NAME} demarre avec succes (Statut: UP HTTP 200) ! "
                             echo "=================================================="
                             exit 0
                         fi
 
-                        echo "En attente du démarrage complet de l'application front..."
+                        echo "En attente du demarrage complet de application front..."
                         sleep \$SLEEP_TIME
                     done
 
-                    echo "ERREUR : L'application front n'a pas répondu avec HTTP 200 après \$MAX_ATTEMPTS tentatives."
+                    echo "ERREUR : Le front ne repond pas avec HTTP 200 apres \$MAX_ATTEMPTS tentatives."
                     exit 1
                     """
 
@@ -337,12 +337,12 @@ pipeline {
                     def rollbackCmd = """
                         set +e
                         cd ${env.REMOTE_DIR}
-                        echo "Arrêt ciblé du conteneur défaillant [${env.CONTAINER_NAME}]..."
+                        echo "Arret cible du conteneur defaillant [${env.CONTAINER_NAME}]..."
                         docker stop ${env.CONTAINER_NAME} 2>/dev/null || true
 
-                        echo "Restauration de la version précédente [${env.PREVIOUS_IMAGE}]..."
+                        echo "Restauration de la version precedente [${env.PREVIOUS_IMAGE}]..."
                         FULL_IMAGE_NAME="${env.PREVIOUS_IMAGE}" docker compose up -d
-                        echo "Rollback appliqué avec succès."
+                        echo "Rollback applique avec succes."
                     """
 
                     if (params.DEPLOY_MODE == 'ssh') {
