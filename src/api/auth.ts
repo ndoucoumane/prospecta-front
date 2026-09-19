@@ -68,7 +68,7 @@ export const authApi = {
     firstName: string;
     lastName: string;
     email: string;
-    organizationName: string;
+    organizationName?: string;
     password: string;
     phone?: string;
   }): Promise<{ user: User; token: string }> {
@@ -77,7 +77,7 @@ export const authApi = {
       lastName: data.lastName,
       email: data.email,
       password: data.password,
-      companyName: data.organizationName,
+      companyName: data.organizationName || `${data.firstName} ${data.lastName}`.trim() || 'Mon Organisation',
       phone: data.phone || undefined,
     };
 

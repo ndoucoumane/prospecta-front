@@ -17,7 +17,7 @@ interface AuthContextType {
     firstName: string;
     lastName: string;
     email: string;
-    organizationName: string;
+    organizationName?: string;
     password: string;
     phone?: string;
   }) => Promise<void>;
@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     firstName: string;
     lastName: string;
     email: string;
-    organizationName: string;
+    organizationName?: string;
     password: string;
     phone?: string;
   }) => {

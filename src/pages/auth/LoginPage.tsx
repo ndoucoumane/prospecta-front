@@ -145,7 +145,7 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <input
                   type="email"
-                  placeholder="Adresse email professionnelle"
+                  placeholder="Adresse Email"
                   className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-gray-300 rounded-md text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
                   {...register('email')}
                 />
