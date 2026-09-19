@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  prospecta-front-staging:
+    image: ${FULL_IMAGE_NAME:-ghcr.io/ndoucoumane/prospecta-front-staging:latest}
+    container_name: prospecta-front-staging
+    restart: always
+    ports:
+      - "3001:80"
+    networks:
+      - infrastructure-network
+    environment:
+      - NODE_ENV=staging
+    # env_file:
+    #   - prospecta-front-staging.env
+
+networks:
+  infrastructure-network:
+    external: true
