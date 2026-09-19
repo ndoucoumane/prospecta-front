@@ -83,9 +83,9 @@ pipeline {
                     // Ports par défaut pour le frontend (à adapter si nécessaire dans votre docker-compose)
                     env.TARGET_PORT     = isStaging ? '3001' : '3000'
                     env.CONTAINER_NAME  = isStaging ? 'prospecta-front-staging' : 'prospecta-front-prod'
-                    env.REMOTE_DIR      = isStaging ? '/opt/prospecta-front/staging' : '/opt/prospecta-front/production'
+                    env.REMOTE_DIR      = isStaging ? '/opt/prospecta/front-staging' : '/opt/prospecta/front-production'
                     env.COMPOSE_FILE    = isStaging ? 'docker-compose.staging.yml' : 'docker-compose.prod.yml'
-                    env.ENV_FILE        = isStaging ? '/opt/prospecta-front/staging/prospecta-front-staging.env' : '/opt/prospecta-front/production/prospecta-front-prod.env'
+                    env.ENV_FILE        = isStaging ? '/opt/prospecta/front-staging/prospecta-front-staging.env' : '/opt/prospecta/front-production/prospecta-front-prod.env'
                     env.IMAGE_NAME      = "${registry}/prospecta-front${isStaging ? '-staging' : ''}"
                     env.IMAGE_TAG       = "${isStaging ? 'staging' : 'prod'}-${env.BUILD_NUMBER}"
                     env.FULL_IMAGE_NAME = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
